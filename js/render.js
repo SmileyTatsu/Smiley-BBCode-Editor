@@ -44,6 +44,10 @@ function externalLink(href) {
 export function render(nodes, options) {
     const { collapseState, spoilerState, warnings } = options;
 
+    // editable is for the visual editor: it adds the data the editor reads the
+    // text back from, and makes links, icons and the like uneditable blocks
+    const editable = Boolean(options.editable);
+
     // collapses and spoilers are identified by their order in the text
     let collapseCount = 0;
     let spoilerCount = 0;
@@ -52,15 +56,42 @@ export function render(nodes, options) {
         for (const child of children) renderNode(parent, child);
     }
 
+    // an atom is shown but not typed into; data-bbcode is what it is written back as
+    function atom(element, source, kind) {
+        element.setAttribute('contenteditable', 'false');
+        element.dataset.bbcode = source;
+        element.dataset.kind = kind;
+        return element;
+    }
+
+    // an element with nothing in it gets a zero-width space, so the caret can sit in it
+    function keepCaretSpot(element) {
+        if (editable && !element.firstChild)
+            element.appendChild(document.createTextNode('\u200b'));
+    }
+
     function renderNode(parent, node) {
         if (node.type === 'text') {
+            if (editable && node.source !== undefined) {
+                const span = el('span', 'atom-text');
+                span.textContent = node.value;
+                parent.appendChild(atom(span, node.source, 'text'));
+                return;
+            }
             parent.appendChild(document.createTextNode(node.value));
         } else if (node.type === 'void') {
-            parent.appendChild(el('hr'));
+            const rule = el('hr');
+            parent.appendChild(editable ? atom(rule, '[hr]', 'hr') : rule);
         } else if (node.type === 'url') {
-            parent.appendChild(renderUrl(node));
+            const link = renderUrl(node);
+            parent.appendChild(
+                editable ? atom(link, node.source, 'url') : link
+            );
         } else if (node.type === 'raw') {
-            parent.appendChild(renderRaw(node));
+            const raw = renderRaw(node);
+            parent.appendChild(
+                editable ? atom(raw, node.source, node.tag) : raw
+            );
         } else {
             renderElement(parent, node);
         }
@@ -142,6 +173,12 @@ export function render(nodes, options) {
         return wrap;
     }
 
+    function mark(element, node) {
+        if (!editable) return;
+        element.dataset.tag = node.tag;
+        element.dataset.param = node.param;
+    }
+
     function renderElement(parent, node) {
         if (node.tag === 'collapse') return renderCollapse(parent, node);
         if (node.tag === 'spoiler') return renderSpoiler(parent, node);
@@ -159,17 +196,33 @@ export function render(nodes, options) {
             out = el('blockquote');
             const header = el('div', 'quote-header');
             header.textContent = 'Quote:';
+            if (editable) {
+                header.setAttribute('contenteditable', 'false');
+                header.dataset.skip = '';
+            }
             out.appendChild(header);
         } else {
             const [tag, className] = SIMPLE[node.tag];
             out = el(tag, className);
         }
 
+        mark(out, node);
         parent.appendChild(out);
         appendAll(out, node.children);
+        keepCaretSpot(out);
     }
 
     function renderSpoiler(parent, node) {
+        // while editing, a spoiler is always open, with an outline to show it is one
+        if (editable) {
+            const shown = el('span', 'spoiler-edit');
+            mark(shown, node);
+            parent.appendChild(shown);
+            appendAll(shown, node.children);
+            keepCaretSpot(shown);
+            return;
+        }
+
         const key = spoilerCount++;
 
         const wrap = el('span');
@@ -207,6 +260,13 @@ export function render(nodes, options) {
         header.setAttribute('role', 'button');
         appendTitle(header, node.param);
 
+        if (editable) {
+            mark(outer, node);
+            header.setAttribute('contenteditable', 'false');
+            header.dataset.skip = '';
+            header.title = 'Double-click to change the title';
+        }
+
         // the extra inner div is what lets the body animate to zero height
         const body = el('div', 'collapse-body');
         const inner = el('div', 'collapse-body-inner');
@@ -217,6 +277,7 @@ export function render(nodes, options) {
         outer.append(header, body);
         parent.appendChild(outer);
         appendAll(content, node.children);
+        keepCaretSpot(content);
 
         function setOpen(open) {
             outer.classList.toggle('open', open);

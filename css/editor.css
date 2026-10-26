@@ -144,6 +144,34 @@ input[type='text'] {
     margin: 0;
 }
 
+/* editor tabs */
+
+.tabs {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.tab {
+    background: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 0 0.5rem 0.1rem;
+}
+
+.tab:hover {
+    color: var(--text);
+}
+
+.tab[aria-selected='true'] {
+    border-bottom-color: var(--accent);
+    color: var(--text);
+}
+
 /* toolbar */
 
 .toolbar {
@@ -239,7 +267,8 @@ input[type='text'] {
 }
 
 #input,
-#backdrop {
+#backdrop,
+#linemark {
     border: 0;
     font: inherit;
     inset: 0;
@@ -270,6 +299,28 @@ input[type='text'] {
     color: var(--muted);
 }
 
+/* the line of the warning that was clicked, behind the colored text */
+
+#linemark {
+    color: transparent;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+#linemark mark {
+    background: rgba(230, 180, 80, 0.28);
+    border-radius: 2px;
+    color: transparent;
+}
+
+::highlight(warning-line) {
+    background: rgba(230, 180, 80, 0.3);
+}
+
+.visual-on #linemark {
+    display: none;
+}
+
 #backdrop {
     color: var(--text);
     overflow: hidden;
@@ -295,6 +346,109 @@ input[type='text'] {
 
 .tk-black {
     background: #aaa;
+}
+
+/* visual editor: the preview's own styles do the formatting, this adds editing */
+
+.visual {
+    caret-color: var(--text);
+    inset: 0;
+    position: absolute;
+    z-index: 2;
+}
+
+.visual[hidden] {
+    display: none;
+}
+
+.visual:focus {
+    outline: none;
+}
+
+/* the textarea stays underneath, invisible, so the toolbar can still edit through it */
+.visual-on #input {
+    opacity: 0;
+    pointer-events: none;
+    z-index: -1;
+}
+
+.visual-on #backdrop {
+    display: none;
+}
+
+.visual [data-bbcode] {
+    border-radius: 3px;
+    cursor: default;
+}
+
+.visual [data-bbcode]:hover {
+    outline: 1px dashed var(--border);
+    outline-offset: 2px;
+}
+
+.visual .collapse-header {
+    user-select: none;
+}
+
+.visual .spoiler-edit {
+    border-radius: 3px;
+    outline: 1px dashed var(--border);
+    outline-offset: 1px;
+}
+
+.visual .spoiler-edit::before {
+    content: 'spoiler ';
+    font-size: 0.75em;
+    opacity: 0.6;
+    user-select: none;
+}
+
+/* dialog */
+
+.ask {
+    background: var(--surface-2);
+    border: 1px solid var(--hover);
+    border-radius: 8px;
+    color: var(--text);
+    min-width: min(22rem, 90vw);
+    padding: 1rem;
+}
+
+.ask::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.ask-title {
+    font-size: 1rem;
+    margin: 0 0 0.75rem;
+}
+
+.ask-fields {
+    display: grid;
+    gap: 0.6rem;
+}
+
+.ask-fields label {
+    color: var(--muted);
+    display: grid;
+    font-size: 0.85rem;
+    gap: 0.25rem;
+}
+
+.ask-fields input {
+    color: var(--text);
+}
+
+.ask-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-top: 1rem;
+}
+
+.btn.primary {
+    background: var(--accent);
+    color: #111;
 }
 
 /* preview pane */

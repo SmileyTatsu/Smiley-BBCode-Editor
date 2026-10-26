@@ -1,4 +1,5 @@
 import { completeColor } from './tags.js';
+import { readTag, findCloser } from './parser.js';
 
 const URL_LIKE = /^(?:(?:https?|ftps?|irc):\/\/|www\.)\S+$/i;
 const COLOR_OPEN = /\[color=([a-z]*)$/i;
@@ -10,6 +11,50 @@ export function colorParam(value, start, end) {
     const lineStart = value.lastIndexOf('\n', start - 1) + 1;
     const match = COLOR_OPEN.exec(value.slice(lineStart, start));
     return match ? { prefix: match[1], close: end } : null;
+}
+
+// Wrapping a selection that holds only half of a tag pair would cross the tags, as in
+// [i]x[/b]y[/i]. This cuts such tags out of [start, end) and returns the stretches
+// between them, which can each be wrapped on their own.
+export function balancedSegments(text, start, end) {
+    if (start >= end) return [[start, end]];
+
+    const cuts = [];
+    const open = [];
+    let i = start;
+
+    while ((i = text.indexOf('[', i)) !== -1 && i < end) {
+        const tok = readTag(text, i);
+        if (!tok || tok.end > end) {
+            i++;
+            continue;
+        }
+
+        i = tok.end;
+        if (tok.closing) {
+            const k = open.findLastIndex(other => other.name === tok.name);
+            if (k === -1) cuts.push(tok);
+            else open.length = k;
+        } else if (tok.def.kind === 'container') {
+            open.push(tok);
+        } else if (tok.def.kind === 'raw') {
+            const close = findCloser(text, tok.end, tok.name);
+            if (close && close.index + close[0].length <= end)
+                i = close.index + close[0].length;
+        }
+    }
+
+    cuts.push(...open);
+    cuts.sort((a, b) => a.start - b.start);
+
+    const parts = [];
+    let from = start;
+    for (const cut of cuts) {
+        if (cut.start > from) parts.push([from, cut.start]);
+        from = cut.end;
+    }
+    if (from < end) parts.push([from, end]);
+    return parts;
 }
 
 export function createEditor(textarea) {
@@ -68,6 +113,31 @@ export function createEditor(textarea) {
 
     // caretInOpen puts the caret inside the opening tag, for tags with a parameter
     function wrapWith(open, close, caretInOpen) {
+        if (caretInOpen === undefined && api.balanced) {
+            wrapBalanced(open, close);
+            return;
+        }
+
+        wrapOne(open, close, caretInOpen);
+    }
+
+    // wraps each balanced stretch of the selection on its own, last first so the
+    // earlier offsets stay valid
+    function wrapBalanced(open, close) {
+        const { selectionStart: start, selectionEnd: end, value } = textarea;
+        const parts = balancedSegments(value, start, end);
+        if (parts.length === 0) return;
+
+        for (const [from, to] of parts.toReversed()) {
+            textarea.setSelectionRange(from, to);
+            wrapOne(open, close);
+        }
+
+        const grown = textarea.value.length - value.length;
+        textarea.setSelectionRange(textarea.selectionStart, end + grown);
+    }
+
+    function wrapOne(open, close, caretInOpen) {
         if (caretInOpen === undefined && unwrap(open, close)) return;
 
         const { selectionStart: start, selectionEnd: end, value } = textarea;
@@ -79,8 +149,12 @@ export function createEditor(textarea) {
         replace(start, end, open + selected + close, caret, selEnd);
     }
 
-    return {
+    const api = {
+        // set by the visual editor, which has to keep its tags properly nested
+        balanced: false,
+
         wrap: tag => wrapWith(`[${tag}]`, `[/${tag}]`),
+        wrapParam: (tag, param) => wrapWith(`[${tag}=${param}]`, `[/${tag}]`),
         color: name => wrapWith(`[color=${name}]`, '[/color]'),
         colorPrompt: () => wrapWith('[color=]', '[/color]', '[color='.length),
         collapse: () =>
@@ -152,6 +226,8 @@ export function createEditor(textarea) {
             return true;
         },
     };
+
+    return api;
 }
 
 const alignIcon = path =>

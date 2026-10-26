@@ -70,9 +70,12 @@ function resolveUrl(node, warn) {
     const url = fixUrl((node.param || node.content).trim());
     const text = node.param ? node.content || node.param : node.content;
 
+    // source is the text as typed, so the visual editor can write it back unchanged
+    const source = node.source ?? node.content;
+
     if (!url) {
         warn('[url] has no address.', node.index);
-        return { type: 'text', value: '' };
+        return { type: 'text', value: '', source };
     }
 
     if (!URL_RE.test(url)) {
@@ -80,12 +83,12 @@ function resolveUrl(node, warn) {
             `"${url}" is not a valid link (http, https, ftp or irc).`,
             node.index
         );
-        return { type: 'text', value: `[BAD URL] ${url}` };
+        return { type: 'text', value: `[BAD URL] ${url}`, source };
     }
 
     const host = /^[a-z]+:\/\/(?:www\.)?([^/]+)/i.exec(url);
     const domain = host ? host[1] : url;
-    return { type: 'url', url, text, domain, index: node.index };
+    return { type: 'url', url, text, domain, index: node.index, source };
 }
 
 // turns the raw text between a tag pair into a node
@@ -97,7 +100,7 @@ function resolveRaw(node, warn) {
     }
 
     if (tag === 'noparse') {
-        return { type: 'raw', tag, text: content, index };
+        return { type: 'raw', tag, text: content, index, source: node.source };
     }
 
     if (tag === 'url') {
@@ -115,6 +118,7 @@ function resolveRaw(node, warn) {
             id: parseInt(param, 10),
             name: content.trim(),
             index,
+            source: node.source,
         };
     }
 
@@ -124,7 +128,7 @@ function resolveRaw(node, warn) {
         warn(`[${tag}] needs a plain name; shown as text.`, index);
         return { type: 'text', value: node.source };
     }
-    return { type: 'raw', tag, name, index };
+    return { type: 'raw', tag, name, index, source: node.source };
 }
 
 function checkParam(node, warn) {

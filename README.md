@@ -21,6 +21,20 @@ The only things it fetches from F-List are character icons and eicons
   `Shift+↑`/`Shift+↓` for sup/sub. Applying a wrap twice removes it. Edits go
   through the browser's own undo, so `Ctrl+Z` keeps working. The browser may
   grab a few shortcuts for itself.
+- **Visual tab.** Next to the BBCode tab, it shows your text formatted like the
+  preview, and you can type in it. The BBCode, the preview and the warnings
+  follow as you type, and the toolbar and shortcuts work the same way. Enter adds
+  a line break and pasting keeps only plain text. Links, icons, eicons, users,
+  images, rules and `[noparse]` are blocks: delete them as a whole, and
+  double-click one to change it. Double-click a collapse title to rename it.
+  Collapses and spoilers are always open here, and a spoiler has a dashed
+  outline. `Ctrl+Z` / `Ctrl+Y` undo and redo within this tab. A selection that
+  holds half of a tag pair is split so the tags stay nested. Switching tabs
+  keeps your caret. Editing here writes the BBCode again from what is on the
+  page, so it tidies it: tags come out lower case, an unclosed tag gets its
+  closing tag, and formatting with nothing inside is dropped. Text you type
+  that looks like a tag, such as `[b]`, is plain text on the page and becomes a
+  tag when you next open the tab.
 - **Color by typing.** `Ctrl+D` inserts `[color=]` with the caret right after
   the `=`. Type the start of a color and it is completed when only one color
   fits (`r` gives red). When several fit, such as `g` (green, gray), keep typing
@@ -97,10 +111,11 @@ js/tags.js        tag table: what exists, what may go inside what
 js/parser.js      text -> tree + warnings (no DOM, so Node can test it)
 js/render.js      tree -> DOM
 js/editor.js      textarea editing helpers and the toolbar definition
+js/visual.js      the Visual tab: reads BBCode back out of the page
 js/inlines.js     the local inline images
 js/sample.js      example text
 js/app.js         wires everything together
-tests/            parser and editor tests
+tests/            parser, editor and visual tab tests
 ```
 
 ## Development
@@ -109,7 +124,7 @@ tests/            parser and editor tests
 npm install
 npm run format        # Prettier, writes changes
 npm run format:check  # Prettier, check only
-npm test              # Node's built-in test runner
+npm test              # Node's built-in test runner (the visual tests use jsdom)
 ```
 
 Formatting is handled by Prettier (`.prettierrc.json`, `.editorconfig`). Run
